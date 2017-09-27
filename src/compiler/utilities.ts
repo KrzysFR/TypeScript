@@ -1559,7 +1559,7 @@ namespace ts {
 
             // Pull parameter comments from declaring function as well
             if (node.kind === SyntaxKind.Parameter) {
-                result = addRange(result, getJSDocParameterTags(node as ParameterDeclaration));
+                result = addRange(result, _getJSDocParameterTags(node as ParameterDeclaration));
             }
 
             if (isVariableLike(node) && node.initializer && hasJSDocNodes(node.initializer)) {
@@ -1572,8 +1572,32 @@ namespace ts {
         }
     }
 
+    /**
+     * Gets the JSDoc parameter tags for the node if present.
+     *
+     * @remarks Returns any JSDoc param tag that matches the provided
+     * parameter, whether a param tag on a containing function
+     * expression, or a param tag on a variable declaration whose
+     * initializer is the containing function. The tags closest to the
+     * node are returned first, so in the previous example, the param
+     * tag on the containing function expression would be first.
+     *
+     * Does not return tags for binding patterns, because JSDoc matches
+     * parameters by name and binding patterns do not have a name.
+     */
+    //!
+    function _getJSDocParameterTags(param: ParameterDeclaration): ReadonlyArray<JSDocParameterTag> | undefined {
+        if (param.name && isIdentifier(param.name)) {
+            const name = param.name.escapedText;
+            return getJSDocTags(param.parent).filter((tag): tag is JSDocParameterTag => isJSDocParameterTag(tag) && isIdentifier(tag.name) && tag.name.escapedText === name) as JSDocParameterTag[];
+        }
+        // a binding pattern doesn't have a name, so it's not possible to match it a JSDoc parameter, which is identified by name
+        return undefined;
+    }
+
     /** Does the opposite of `getJSDocParameterTags`: given a JSDoc parameter, finds the parameter corresponding to it. */
-    export function getParameterSymbolFromJSDoc(node: JSDocParameterTag): Symbol | undefined {
+    //kill
+    /*export function getParameterSymbolFromJSDoc(node: JSDocParameterTag): Symbol | undefined {
         if (node.symbol) {
             return node.symbol;
         }
@@ -1589,7 +1613,7 @@ namespace ts {
         const parameter = find(func.parameters, p =>
             p.name.kind === SyntaxKind.Identifier && p.name.escapedText === name);
         return parameter && parameter.symbol;
-    }
+    }*/
 
     export function getTypeParameterFromJsDoc(node: TypeParameterDeclaration & { parent: JSDocTemplateTag }): TypeParameterDeclaration | undefined {
         const name = node.name.escapedText;
@@ -1606,17 +1630,12 @@ namespace ts {
     }
 
     export function isRestParameter(node: ParameterDeclaration) {
-        if (isInJavaScriptFile(node)) {
-            if (node.type && node.type.kind === SyntaxKind.JSDocVariadicType ||
-                forEach(getJSDocParameterTags(node),
-                    t => t.typeExpression && t.typeExpression.type.kind === SyntaxKind.JSDocVariadicType)) {
-                return true;
-            }
-        }
-        return isDeclaredRestParam(node);
+        return isDeclaredRestParam(node) || isInJavaScriptFile(node) && (
+            (node.type && node.type.kind === SyntaxKind.JSDocVariadicType ||
+                node.jsdocParamTag && node.jsdocParamTag.typeExpression && node.jsdocParamTag.typeExpression.type.kind === SyntaxKind.JSDocVariadicType));
     }
 
-    export function isDeclaredRestParam(node: ParameterDeclaration) {
+    function isDeclaredRestParam(node: ParameterDeclaration) {
         return node && node.dotDotDotToken !== undefined;
     }
 
@@ -4040,28 +4059,6 @@ namespace ts {
     }
 
     /**
-     * Gets the JSDoc parameter tags for the node if present.
-     *
-     * @remarks Returns any JSDoc param tag that matches the provided
-     * parameter, whether a param tag on a containing function
-     * expression, or a param tag on a variable declaration whose
-     * initializer is the containing function. The tags closest to the
-     * node are returned first, so in the previous example, the param
-     * tag on the containing function expression would be first.
-     *
-     * Does not return tags for binding patterns, because JSDoc matches
-     * parameters by name and binding patterns do not have a name.
-     */
-    export function getJSDocParameterTags(param: ParameterDeclaration): ReadonlyArray<JSDocParameterTag> | undefined {
-        if (param.name && isIdentifier(param.name)) {
-            const name = param.name.escapedText;
-            return getJSDocTags(param.parent).filter((tag): tag is JSDocParameterTag => isJSDocParameterTag(tag) && isIdentifier(tag.name) && tag.name.escapedText === name) as JSDocParameterTag[];
-        }
-        // a binding pattern doesn't have a name, so it's not possible to match it a JSDoc parameter, which is identified by name
-        return undefined;
-    }
-
-    /**
      * Return true if the node has JSDoc parameter tags.
      *
      * @remarks Includes parameter tags that are not directly on the node,
@@ -4115,10 +4112,7 @@ namespace ts {
     export function getJSDocType(node: Node): TypeNode | undefined {
         let tag: JSDocTypeTag | JSDocParameterTag = getFirstJSDocTag(node, SyntaxKind.JSDocTypeTag) as JSDocTypeTag;
         if (!tag && node.kind === SyntaxKind.Parameter) {
-            const paramTags = getJSDocParameterTags(node as ParameterDeclaration);
-            if (paramTags) {
-                tag = find(paramTags, tag => !!tag.typeExpression);
-            }
+            tag = (node as ParameterDeclaration).jsdocParamTag;
         }
 
         return tag && tag.typeExpression && tag.typeExpression.type;

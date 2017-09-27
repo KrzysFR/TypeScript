@@ -675,9 +675,36 @@ namespace ts {
                 case SyntaxKind.JSDocTypedefTag:
                     bindJSDocTypedefTag(<JSDocTypedefTag>node);
                     break;
+                case SyntaxKind.FunctionDeclaration: //and other signatures:::
+                    bindEachChild(node);
+                    bindSignatureDeclaration(node as SignatureDeclaration);
+                    break;
                 default:
                     bindEachChild(node);
                     break;
+            }
+        }
+
+        function bindSignatureDeclaration(node: SignatureDeclaration) {
+            const { parameters } = node;
+
+            if (parameters.length === 0) {
+                return;
+            }
+
+            let paramI = 0;
+            for (const tag of getJSDocTags(parent)) {
+                if (!isJSDocParameterTag(tag)) {
+                    continue;
+                }
+
+                const param = parameters[paramI];
+                if (!param) {
+                    return; // Too many @param tags!
+                }
+                tag.symbol = param.symbol;
+                param.jsdocParamTag = tag;
+                paramI++;
             }
         }
 

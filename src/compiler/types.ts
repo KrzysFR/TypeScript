@@ -742,6 +742,7 @@ namespace ts {
         questionToken?: QuestionToken;      // Present on optional parameter
         type?: TypeNode;                    // Optional type annotation
         initializer?: Expression;           // Optional initializer
+        /* @internal */ jsdocParamTag?: JSDocParameterTag;
     }
 
     export interface BindingElement extends NamedDeclaration {

@@ -6264,18 +6264,8 @@ namespace ts {
                 if (node.type && node.type.kind === SyntaxKind.JSDocOptionalType) {
                     return true;
                 }
-                const paramTags = getJSDocParameterTags(node);
-                if (paramTags) {
-                    for (const paramTag of paramTags) {
-                        if (paramTag.isBracketed) {
-                            return true;
-                        }
-
-                        if (paramTag.typeExpression) {
-                            return paramTag.typeExpression.type.kind === SyntaxKind.JSDocOptionalType;
-                        }
-                    }
-                }
+                const paramTag = node.jsdocParamTag;
+                return paramTag && (paramTag.isBracketed || paramTag.typeExpression && paramTag.typeExpression.type.kind === SyntaxKind.JSDocOptionalType);
             }
         }
 
@@ -22973,7 +22963,7 @@ namespace ts {
             }
 
             if (entityName.parent!.kind === SyntaxKind.JSDocParameterTag) {
-                return getParameterSymbolFromJSDoc(entityName.parent as JSDocParameterTag);
+                return entityName.parent.symbol; //getParameterSymbolFromJSDoc(entityName.parent as JSDocParameterTag);
             }
 
             if (entityName.parent.kind === SyntaxKind.TypeParameter && entityName.parent.parent.kind === SyntaxKind.JSDocTemplateTag) {
